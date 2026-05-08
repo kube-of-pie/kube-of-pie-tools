@@ -1,0 +1,1 @@
+// Convention plugins live in buildSrc/. Per-module configuration lives in each module's build.gradle.kts.

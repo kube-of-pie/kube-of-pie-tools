@@ -1,0 +1,27 @@
+[versions]
+kotlin = "2.1.20"
+ksp = "2.1.20-1.0.32"
+micronaut-gradle = "4.5.4"
+micronaut-platform = "4.7.6"
+jdk = "25"
+
+[libraries]
+# buildSrc plugin classpath
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-allopen-plugin = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin" }
+ksp-gradle-plugin = { module = "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
+micronaut-gradle-plugin = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle" }
+
+# Micronaut BOM (managed transitively by io.micronaut.application, declared here for reference)
+micronaut-platform = { module = "io.micronaut.platform:micronaut-platform", version.ref = "micronaut-platform" }
+
+# CLI runtime deps (versions resolved by the Micronaut BOM)
+micronaut-picocli = { module = "io.micronaut.picocli:micronaut-picocli" }
+picocli = { module = "info.picocli:picocli" }
+picocli-codegen = { module = "info.picocli:picocli-codegen" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+micronaut-application = { id = "io.micronaut.application", version.ref = "micronaut-gradle" }
