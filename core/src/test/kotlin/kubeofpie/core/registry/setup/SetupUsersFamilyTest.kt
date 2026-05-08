@@ -3,10 +3,12 @@ package kubeofpie.core.registry.setup
 import java.nio.file.Path
 import kubeofpie.core.registry.VariableRegistry
 import kubeofpie.core.registry.VariableStorage
+import kubeofpie.core.secrets.SshKeyGenerator
 import kubeofpie.core.storage.ConfigDatabase
 import kubeofpie.core.storage.OpenMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -57,17 +59,19 @@ class SetupUsersFamilyTest {
     }
 
     @Test
-    fun `family enumerates two keys per user, in registration order`(@TempDir tmp: Path) {
+    fun `family enumerates three keys per user, in registration order`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
         val users = SetupUsersVariable(storage).also { it.write("[\"root\",\"kubeofpie\"]") }
-        val family = SetupUsersFamily(storage, users)
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
 
         assertEquals(
             listOf(
                 "setup.users.root.password",
                 "setup.users.root.ssh.private_key",
+                "setup.users.root.ssh.public_key",
                 "setup.users.kubeofpie.password",
                 "setup.users.kubeofpie.ssh.private_key",
+                "setup.users.kubeofpie.ssh.public_key",
             ),
             family.keys(),
         )
@@ -77,31 +81,36 @@ class SetupUsersFamilyTest {
     fun `family resolves password and ssh key variables for a known user`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
         val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
-        val family = SetupUsersFamily(storage, users)
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
 
         val password = family.variable("setup.users.root.password")
-        assertTrue(password != null)
+        assertNotNull(password)
         assertTrue(password!!.writable)
         assertTrue(password.sensitive)
 
-        val sshKey = family.variable("setup.users.root.ssh.private_key")
-        assertTrue(sshKey != null)
-        assertFalse(sshKey!!.writable)
-        assertTrue(sshKey.sensitive)
+        val sshPrivate = family.variable("setup.users.root.ssh.private_key")
+        assertNotNull(sshPrivate)
+        assertFalse(sshPrivate!!.writable)
+        assertTrue(sshPrivate.sensitive)
+
+        val sshPublic = family.variable("setup.users.root.ssh.public_key")
+        assertNotNull(sshPublic)
+        assertFalse(sshPublic!!.writable)
+        assertFalse(sshPublic.sensitive)
     }
 
     @Test
     fun `family returns null for an unknown user`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
         val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
-        val family = SetupUsersFamily(storage, users)
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
 
         assertNull(family.variable("setup.users.nobody.password"))
     }
 
     @Test
     fun `family returns null for unrelated keys`(@TempDir tmp: Path) {
-        val family = SetupUsersFamily(newStorage(tmp), SetupUsersVariable(newStorage(tmp)))
+        val family = SetupUsersFamily(newStorage(tmp), SetupUsersVariable(newStorage(tmp)), SshKeyGenerator())
 
         assertNull(family.variable("setup.keymap"))
         assertNull(family.variable("setup.users.root.unknown"))
@@ -111,7 +120,7 @@ class SetupUsersFamilyTest {
     fun `registry routes writes to the per-user password variable`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
         val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
-        val family = SetupUsersFamily(storage, users)
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
         val registry = VariableRegistry(listOf(users), listOf(family))
 
         registry.write("setup.users.root.password", "kubeofpie")
@@ -120,16 +129,80 @@ class SetupUsersFamilyTest {
     }
 
     @Test
-    fun `registry rejects writes to the read-only ssh key`(@TempDir tmp: Path) {
+    fun `registry rejects writes to the read-only ssh private key`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
         val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
-        val family = SetupUsersFamily(storage, users)
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
         val registry = VariableRegistry(listOf(users), listOf(family))
 
         val ex = assertThrows(IllegalArgumentException::class.java) {
             registry.write("setup.users.root.ssh.private_key", "fake key")
         }
         assertTrue(ex.message!!.contains("not user-writable"))
+    }
+
+    @Test
+    fun `registry rejects writes to the read-only ssh public key`(@TempDir tmp: Path) {
+        val storage = newStorage(tmp)
+        val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
+        val registry = VariableRegistry(listOf(users), listOf(family))
+
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            registry.write("setup.users.root.ssh.public_key", "fake key")
+        }
+        assertTrue(ex.message!!.contains("not user-writable"))
+    }
+
+    @Test
+    fun `first read of the ssh private key generates and persists material`(@TempDir tmp: Path) {
+        val storage = newStorage(tmp)
+        val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
+
+        assertNull(storage.read("setup.users.root.ssh.private_key"))
+        assertNull(storage.read("setup.users.root.ssh.public_key"))
+
+        val generated = family.variable("setup.users.root.ssh.private_key")!!.read()
+        assertNotNull(generated)
+        assertTrue(generated!!.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----"))
+
+        // Both halves persisted on the same call.
+        assertEquals(generated, storage.read("setup.users.root.ssh.private_key"))
+        val publicStored = storage.read("setup.users.root.ssh.public_key")
+        assertNotNull(publicStored)
+        assertTrue(publicStored!!.startsWith("ssh-ed25519 "))
+        assertTrue(publicStored.endsWith(" kube-of-pie:root"))
+    }
+
+    @Test
+    fun `subsequent reads return the same persisted material`(@TempDir tmp: Path) {
+        val storage = newStorage(tmp)
+        val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
+
+        val firstPrivate = family.variable("setup.users.root.ssh.private_key")!!.read()
+        val secondPrivate = family.variable("setup.users.root.ssh.private_key")!!.read()
+        assertEquals(firstPrivate, secondPrivate)
+
+        val firstPublic = family.variable("setup.users.root.ssh.public_key")!!.read()
+        val secondPublic = family.variable("setup.users.root.ssh.public_key")!!.read()
+        assertEquals(firstPublic, secondPublic)
+    }
+
+    @Test
+    fun `reading public key first generates both halves and the private read matches`(@TempDir tmp: Path) {
+        val storage = newStorage(tmp)
+        val users = SetupUsersVariable(storage).also { it.write("[\"root\"]") }
+        val family = SetupUsersFamily(storage, users, SshKeyGenerator())
+
+        val publicFirst = family.variable("setup.users.root.ssh.public_key")!!.read()
+        assertNotNull(publicFirst)
+        assertTrue(publicFirst!!.startsWith("ssh-ed25519 "))
+
+        val privateAfter = family.variable("setup.users.root.ssh.private_key")!!.read()
+        assertEquals(storage.read("setup.users.root.ssh.private_key"), privateAfter)
+        assertEquals(publicFirst, storage.read("setup.users.root.ssh.public_key"))
     }
 
     private fun newStorage(tmp: Path): VariableStorage = VariableStorage(openDatabase(tmp))

@@ -7,4 +7,6 @@ dependencies {
     ksp(libs.micronaut.data.processor)
     implementation(libs.flyway.core)
     implementation(libs.sqlite.jdbc)
+    implementation(libs.bouncycastle.prov)
+    implementation(libs.bouncycastle.pkix)
 }

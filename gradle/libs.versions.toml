@@ -6,6 +6,7 @@ micronaut-platform = "4.7.6"
 jdk = "25"
 flyway = "11.10.0"
 sqlite-jdbc = "3.50.3.0"
+bouncycastle = "1.78.1"
 
 [libraries]
 # buildSrc plugin classpath
@@ -27,6 +28,10 @@ micronaut-data-jdbc = { module = "io.micronaut.data:micronaut-data-jdbc" }
 micronaut-data-processor = { module = "io.micronaut.data:micronaut-data-processor" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
+
+# Cryptography
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
