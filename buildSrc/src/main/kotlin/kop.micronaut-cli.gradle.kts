@@ -8,6 +8,6 @@ micronaut {
     testRuntime("junit5")
     processing {
         incremental(true)
-        annotations("kubeofpie.tools.*")
+        annotations("kubeofpie.*")
     }
 }
