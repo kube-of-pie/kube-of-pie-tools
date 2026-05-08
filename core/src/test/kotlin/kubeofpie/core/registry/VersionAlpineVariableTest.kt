@@ -32,7 +32,7 @@ class VersionAlpineVariableTest {
     @Test
     fun `write twice for the same key updates rather than duplicating`(@TempDir tmp: Path) {
         val database = openDatabase(tmp)
-        val variable = VersionAlpineVariable(database, AlpineCatalogue())
+        val variable = VersionAlpineVariable(VariableStorage(database), AlpineCatalogue())
 
         variable.write("3.21")
         variable.write("3.21") // upsert path
@@ -51,7 +51,7 @@ class VersionAlpineVariableTest {
     @Test
     fun `registry rejects values outside allowedValues`(@TempDir tmp: Path) {
         val variable = newVariable(tmp)
-        val registry = VariableRegistry(listOf(variable))
+        val registry = VariableRegistry(listOf(variable), emptyList())
 
         val ex = assertThrows(IllegalArgumentException::class.java) {
             registry.write("version.alpine", "3.99")
@@ -63,7 +63,7 @@ class VersionAlpineVariableTest {
     @Test
     fun `registry round-trip persists through write`(@TempDir tmp: Path) {
         val variable = newVariable(tmp)
-        val registry = VariableRegistry(listOf(variable))
+        val registry = VariableRegistry(listOf(variable), emptyList())
 
         registry.write("version.alpine", "3.21")
 
@@ -81,7 +81,7 @@ class VersionAlpineVariableTest {
     }
 
     private fun newVariable(tmp: Path): VersionAlpineVariable =
-        VersionAlpineVariable(openDatabase(tmp), AlpineCatalogue())
+        VersionAlpineVariable(VariableStorage(openDatabase(tmp)), AlpineCatalogue())
 
     private fun openDatabase(tmp: Path): ConfigDatabase {
         val database = ConfigDatabase()
