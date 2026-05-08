@@ -16,6 +16,8 @@ A shared core library sits underneath the CLI tools and exposes:
 Each tool depends on this library rather than reimplementing configuration parsing or hardcoding model/version
 specifics.
 
+See [`core/README.md`](core/README.md) for the full description of the library's responsibilities and storage model.
+
 ## Tools
 
 The toolchain is split into three independent commands. Each one consumes (and/or produces) the cluster configuration so
