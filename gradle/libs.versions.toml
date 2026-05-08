@@ -4,6 +4,8 @@ ksp = "2.3.7"
 micronaut-gradle = "4.5.4"
 micronaut-platform = "4.7.6"
 jdk = "25"
+flyway = "11.10.0"
+sqlite-jdbc = "3.50.3.0"
 
 [libraries]
 # buildSrc plugin classpath
@@ -19,6 +21,12 @@ micronaut-platform = { module = "io.micronaut.platform:micronaut-platform", vers
 micronaut-picocli = { module = "io.micronaut.picocli:micronaut-picocli" }
 picocli = { module = "info.picocli:picocli" }
 picocli-codegen = { module = "info.picocli:picocli-codegen" }
+
+# Storage (versions resolved by the Micronaut BOM where unspecified)
+micronaut-data-jdbc = { module = "io.micronaut.data:micronaut-data-jdbc" }
+micronaut-data-processor = { module = "io.micronaut.data:micronaut-data-processor" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
