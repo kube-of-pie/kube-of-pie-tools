@@ -1,6 +1,12 @@
-.idea/
+# Gradle
 .gradle/
 build/
+local.properties
+
+# IntelliJ
+.idea/
 out/
 *.iml
-local.properties
+
+# Claude Code
+.claude/settings.local.json
