@@ -111,6 +111,11 @@ For each model, the catalogue carries:
 
 ### Alpine releases
 
+The supported set lives under `core/src/main/resources/alpine/<version>.yaml`: dropping a
+new file there is the only step required to make a release available to the registry.
+`AlpineCatalogue` enumerates these files and exposes the version list to the variable
+registry (consumed today by `version.alpine`).
+
 For each supported Alpine version, the catalogue carries:
 
 - **Release URLs / mirror info** — where to download the SD-card-ready archive for a given version and architecture.

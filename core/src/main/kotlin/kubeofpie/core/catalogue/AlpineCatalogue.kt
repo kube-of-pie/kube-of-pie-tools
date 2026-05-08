@@ -1,0 +1,58 @@
+package kubeofpie.core.catalogue
+
+import jakarta.inject.Singleton
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.jar.JarFile
+
+/**
+ * Catalogue of Alpine releases the toolchain knows how to target. The supported set is
+ * derived from the YAML files shipped under `classpath:alpine/<version>.yaml`: dropping a
+ * new file there is the only step required to add support for a new release. The YAML
+ * payload itself (download URL, apk repositories, dependencies) ships with the resource
+ * but is not parsed yet — future image / inventory generators will read it.
+ */
+@Singleton
+class AlpineCatalogue {
+
+    /** Supported Alpine version identifiers (e.g. `"3.21"`), sorted ascending. */
+    fun supportedVersions(): List<String> {
+        val baseUrl = javaClass.classLoader.getResource(RESOURCE_DIR)
+            ?: return emptyList()
+        return when (baseUrl.protocol) {
+            "file" -> listFromDirectory(baseUrl)
+            "jar" -> listFromJar(baseUrl)
+            else -> error("unsupported resource URL scheme: $baseUrl")
+        }.sorted()
+    }
+
+    private fun listFromDirectory(url: URL): List<String> =
+        Files.list(Paths.get(url.toURI())).use { stream ->
+            stream.map { it.fileName.toString() }
+                .filter { it.endsWith(YAML_SUFFIX) }
+                .map { it.removeSuffix(YAML_SUFFIX) }
+                .toList()
+        }
+
+    private fun listFromJar(url: URL): List<String> {
+        // jar URL form: jar:file:/path/to/app.jar!/alpine/
+        val raw = url.path
+        val bang = raw.indexOf("!/")
+        require(bang >= 0) { "unexpected jar URL: $url" }
+        val jarPath = raw.substring("file:".length, bang)
+        return JarFile(jarPath).use { jar ->
+            jar.entries().asSequence()
+                .map { it.name }
+                .filter { it.startsWith(RESOURCE_DIR) && it.endsWith(YAML_SUFFIX) }
+                .map { it.removePrefix(RESOURCE_DIR).removeSuffix(YAML_SUFFIX) }
+                .filter { it.isNotEmpty() && !it.contains('/') }
+                .toList()
+        }
+    }
+
+    private companion object {
+        const val RESOURCE_DIR = "alpine/"
+        const val YAML_SUFFIX = ".yaml"
+    }
+}
