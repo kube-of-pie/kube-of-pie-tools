@@ -1,4 +1,4 @@
-package kubeofpie.core.registry.setup
+package kubeofpie.core.registry.users
 
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -9,17 +9,17 @@ import kubeofpie.core.registry.VariableStorage
 /**
  * Cluster-wide list of Linux user accounts to create on every node, stored as
  * a JSON array of strings (e.g. `["root","kubeofpie"]`). Each entry expands —
- * via [SetupUsersFamily] — into its own `setup.users.<name>.password` and
- * `setup.users.<name>.ssh.private_key` keys.
+ * via [UsersFamily] — into its own `users.<name>.password`,
+ * `users.<name>.ssh.enabled`, and `users.<name>.ssh.{private,public}_key` keys.
  *
  * Names are validated against the conservative POSIX user-name shape used by
  * `useradd` (`[a-z_][a-z0-9_-]*`). Anything else is rejected at write time so
  * we never end up persisting names that would break the family's key parsing.
  */
 @Singleton
-class SetupUsersVariable(private val storage: VariableStorage) : Variable {
+class UsersVariable(private val storage: VariableStorage) : Variable {
 
-    override val key: String = "setup.users"
+    override val key: String = "users"
     override val description: String =
         "JSON array of Linux user names to create on each node (e.g. " +
             "[\"root\",\"kubeofpie\"])."

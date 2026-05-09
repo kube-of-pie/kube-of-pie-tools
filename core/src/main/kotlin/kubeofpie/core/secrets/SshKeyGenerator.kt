@@ -15,7 +15,7 @@ import org.bouncycastle.util.io.pem.PemWriter
 
 /**
  * Generates Ed25519 SSH key pairs in the OpenSSH on-disk formats. Used by the
- * variable registry to lazily populate `setup.users.<name>.ssh.private_key`
+ * variable registry to lazily populate `users.<name>.ssh.private_key`
  * and `…ssh.public_key` the first time either is read.
  *
  * Ed25519 is the only supported algorithm: modern, fixed-size, no parameter-

@@ -2,7 +2,7 @@ package kubeofpie.core.registry
 
 /**
  * A *family* produces multiple [Variable] entries whose keys share a common shape
- * but vary in a dynamic component — a username (`setup.users.<name>.password`),
+ * but vary in a dynamic component — a username (`users.<name>.password`),
  * a node index (`nodes.<i>.network.hostname`), or a list element. Concrete
  * variables can only be enumerated after looking at the current registry state
  * (e.g. the configured user list, the current `cluster.nodes.count`), so they
