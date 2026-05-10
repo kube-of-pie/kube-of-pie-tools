@@ -63,9 +63,10 @@ All commands take a global `--db <path>` flag and respect `KUBE_OF_PIE_DB`; see
 Run via the Gradle wrapper:
 
 ```sh
-./gradlew :config:run --args="--help"
-```     
+./gradlew :config:run -q --console=plain --args="--help"
+```
 
+`-q --console=plain` silences Gradle's lifecycle output and progress bar so only the tool's own output is shown.
 Anything you pass inside `--args="…"` is forwarded to picocli.
 
 ### From IntelliJ
