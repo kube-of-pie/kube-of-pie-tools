@@ -3,6 +3,11 @@
 build/
 local.properties
 
+# kube-of-pie config database (default location: CWD of the tool)
+kube-of-pie.db
+kube-of-pie.db-shm
+kube-of-pie.db-wal
+
 # IntelliJ
 .idea/
 out/
