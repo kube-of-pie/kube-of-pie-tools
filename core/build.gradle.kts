@@ -9,4 +9,7 @@ dependencies {
     implementation(libs.sqlite.jdbc)
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
+    implementation(libs.micronaut.serde.jackson)
+    ksp(libs.micronaut.serde.processor)
+    implementation(libs.snakeyaml)
 }
