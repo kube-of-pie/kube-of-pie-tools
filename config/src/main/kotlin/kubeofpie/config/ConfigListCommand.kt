@@ -2,6 +2,7 @@ package kubeofpie.config
 
 import jakarta.inject.Singleton
 import java.util.concurrent.Callable
+import kubeofpie.core.registry.ListableVariable
 import kubeofpie.core.registry.VariableRegistry
 import kubeofpie.core.storage.ConfigDatabase
 import kubeofpie.core.storage.DatabasePath
@@ -47,16 +48,24 @@ class ConfigListCommand(
             return 2
         }
         for (variable in registry.list(prefix, writableOnly)) {
-            val value = when {
-                variable.sensitive -> "<redacted>"
-                else -> variable.read() ?: "<unset>"
-            }
             val allowed = variable.allowedValues()?.joinToString(", ", "[", "]") ?: "(unbounded)"
             val flags = buildList {
                 if (!variable.writable) add("read-only")
                 if (variable.sensitive) add("sensitive")
+                if (variable is ListableVariable) add("listable")
             }.joinToString(", ").ifEmpty { "writable" }
-            println("${variable.key} = $value")
+            if (variable is ListableVariable) {
+                println("${variable.key}:")
+                for (id in variable.identifiers()) {
+                    println("  $id")
+                }
+            } else {
+                val value = when {
+                    variable.sensitive -> "<redacted>"
+                    else -> variable.read() ?: "<unset>"
+                }
+                println("${variable.key} = $value")
+            }
             println("  ${variable.description}")
             println("  allowed: $allowed")
             println("  flags:   $flags")

@@ -34,7 +34,7 @@ class UsersFamily(
     private val sshKeyGenerator: SshKeyGenerator,
 ) : VariableFamily {
 
-    override fun keys(): List<String> = users.list().flatMap { name ->
+    override fun keys(): List<String> = users.identifiers().flatMap { name ->
         listOf(
             passwordKey(name),
             sshEnabledKey(name),
@@ -46,7 +46,7 @@ class UsersFamily(
     override fun variable(key: String): Variable? {
         val match = PATTERN.matchEntire(key) ?: return null
         val (name, suffix) = match.destructured
-        if (name !in users.list()) return null
+        if (name !in users.identifiers()) return null
         return when (suffix) {
             "password" -> UserPasswordVariable(storage, name)
             "ssh.enabled" -> UserSshEnabledVariable(storage, name)

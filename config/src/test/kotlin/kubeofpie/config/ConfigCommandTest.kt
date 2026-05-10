@@ -69,6 +69,115 @@ class ConfigCommandTest {
         assertTrue(result.err.contains("no database at"), result.err)
     }
 
+    @Test
+    fun `add users appends names and list renders one identifier per line`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+
+        val firstAdd = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "users", "root", "--db", dbPath)
+        }
+        assertEquals(0, firstAdd.exitCode)
+        assertTrue(firstAdd.out.contains("added users.root"), firstAdd.out)
+
+        val secondAdd = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "users", "kubeofpie", "--db", dbPath)
+        }
+        assertEquals(0, secondAdd.exitCode)
+
+        val list = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "list", "--prefix", "users", "--db", dbPath)
+        }
+        assertEquals(0, list.exitCode)
+        assertTrue(list.out.contains("users:\n  root\n  kubeofpie"), list.out)
+        assertTrue(list.out.contains("listable"), list.out)
+
+        val get = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "get", "users", "--db", dbPath)
+        }
+        assertEquals(0, get.exitCode)
+        assertEquals("root\nkubeofpie", get.out.trim())
+    }
+
+    @Test
+    fun `remove users drops a known name`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "users", "root", "--db", dbPath)
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "users", "kubeofpie", "--db", dbPath)
+
+        val removed = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "remove", "users", "root", "--db", dbPath)
+        }
+        assertEquals(0, removed.exitCode)
+        assertTrue(removed.out.contains("removed users.root"), removed.out)
+
+        val get = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "get", "users", "--db", dbPath)
+        }
+        assertEquals("kubeofpie", get.out.trim())
+    }
+
+    @Test
+    fun `add nodes auto-assigns sequential indices`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+
+        val first = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
+        }
+        assertEquals(0, first.exitCode)
+        assertTrue(first.out.contains("added nodes.0"), first.out)
+
+        val second = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
+        }
+        assertEquals(0, second.exitCode)
+        assertTrue(second.out.contains("added nodes.1"), second.out)
+
+        val get = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "get", "nodes", "--db", dbPath)
+        }
+        assertEquals("0\n1", get.out.trim())
+    }
+
+    @Test
+    fun `remove nodes only accepts the highest index`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
+
+        val rejected = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "remove", "nodes", "0", "--db", dbPath)
+        }
+        assertEquals(2, rejected.exitCode)
+        assertTrue(rejected.err.contains("highest index"), rejected.err)
+
+        val accepted = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "remove", "nodes", "1", "--db", dbPath)
+        }
+        assertEquals(0, accepted.exitCode)
+    }
+
+    @Test
+    fun `add rejects a non-listable variable`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+
+        val result = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "version.alpine", "3.21", "--db", dbPath)
+        }
+        assertEquals(2, result.exitCode)
+        assertTrue(result.err.contains("not a listable family"), result.err)
+    }
+
+    @Test
+    fun `set rejects writes to the listable users head`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+
+        val result = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "set", "users", "[\"root\"]", "--db", dbPath)
+        }
+        assertEquals(2, result.exitCode)
+        assertTrue(result.err.contains("not user-writable"), result.err)
+    }
+
     private data class CapturedRun(val exitCode: Int, val out: String, val err: String)
 
     private fun capture(block: () -> Int): CapturedRun {

@@ -52,9 +52,17 @@ one themselves.
 ### Variable model
 
 Configuration entries are exposed as a flat namespace of **dotted-key variables** — for example `version.alpine`,
-`version.kubernetes`, or `kubernetes.network.pod_subnet`. Per-node settings live under `nodes.<i>.…`, where `<i>` is the
-node's positional index in the cluster (`nodes.0.hostname`, `nodes.0.network.mode`, `nodes.1.model`, …); the node count
-is itself a variable, `cluster.nodes.count`.
+`version.kubernetes`, or `kubernetes.network.pod_subnet`. Dynamic-key entries live under family heads:
+
+- `nodes.<i>.…` — per-node settings, where `<i>` is the node's positional index in the cluster
+  (`nodes.0.network.hostname`, `nodes.0.model`, `nodes.1.network.dns`, …).
+- `users.<name>.…` — per-user settings, where `<name>` is a Linux user name
+  (`users.root.password`, `users.kubeofpie.ssh.enabled`, …).
+
+The family heads themselves (`nodes`, `users`) are **listable variables** — non-writable entries whose value is the set
+of identifiers under that family. They are not set with `config set`; membership is changed with the dedicated
+`config add <family> [<id>]` and `config remove <family> <id>` commands. The CLI's `list` and `get` render them as one
+identifier per line.
 
 The library does not just hand callers raw values; each variable carries metadata that the CLI and web UI drive their UX
 from:

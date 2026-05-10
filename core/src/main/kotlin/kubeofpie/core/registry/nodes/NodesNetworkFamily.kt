@@ -4,12 +4,11 @@ import jakarta.inject.Singleton
 import kubeofpie.core.registry.Variable
 import kubeofpie.core.registry.VariableFamily
 import kubeofpie.core.registry.VariableStorage
-import kubeofpie.core.registry.cluster.ClusterNodesCountVariable
 
 /**
- * Per-node network configuration under `nodes.<i>.network.…`. The index range
- * is `0` to [ClusterNodesCountVariable]`.read().toInt() - 1`; the family is
- * empty until that count is set.
+ * Per-node network configuration under `nodes.<i>.network.…`. The index range is
+ * `0` to [NodesVariable]`.identifiers().size - 1`; the family is empty until at
+ * least one node has been added.
  *
  * For each node, the family exposes:
  *
@@ -22,18 +21,18 @@ import kubeofpie.core.registry.cluster.ClusterNodesCountVariable
 @Singleton
 class NodesNetworkFamily(
     private val storage: VariableStorage,
-    private val nodesCount: ClusterNodesCountVariable,
+    private val nodes: NodesVariable,
 ) : VariableFamily {
 
-    override fun keys(): List<String> = (0 until count()).flatMap { i ->
+    override fun keys(): List<String> = nodes.identifiers().flatMap { i ->
         SUFFIXES.map { "nodes.$i.network.$it" }
     }
 
     override fun variable(key: String): Variable? {
         val match = PATTERN.matchEntire(key) ?: return null
         val (rawIndex, suffix) = match.destructured
+        if (rawIndex !in nodes.identifiers()) return null
         val index = rawIndex.toInt()
-        if (index !in 0 until count()) return null
         return when (suffix) {
             "hostname" -> NodeHostnameVariable(storage, index)
             "dns" -> NodeDnsVariable(storage, index)
@@ -43,8 +42,6 @@ class NodesNetworkFamily(
             else -> null
         }
     }
-
-    private fun count(): Int = nodesCount.read()?.toIntOrNull() ?: 0
 
     private companion object {
         private val SUFFIXES = listOf(

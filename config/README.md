@@ -23,14 +23,22 @@ The CLI is a thin wrapper over the registry:
 config list [--prefix <p>] [--writable-only]
 config get <key> [--reveal]
 config set <key> <value>
+config add <key> [<id>]
+config remove <key> <id>
 config ui
 ```
 
-- `list` enumerates variables; metadata (description, writable, allowed values, sensitive) is shown alongside.
+- `list` enumerates variables; metadata (description, writable, allowed values, sensitive) is shown alongside. Listable
+  family heads (`users`, `nodes`) print one identifier per line instead of a single value.
 - `get` prints a single variable's current value and metadata. Sensitive values are redacted unless `--reveal` is
-  passed.
+  passed. For listable heads, the identifiers are printed one per line.
 - `set` writes a value. The registry validates against the allowed-values list and the writable flag; non-writable keys
-  and out-of-range values are rejected with the variable's description as context.
+  and out-of-range values are rejected with the variable's description as context. Listable family heads are not
+  user-writable — use `add` / `remove` instead.
+- `add` adds an identifier to a listable family. `<id>` is required for name-keyed families (`config add users root`)
+  and optional for index-keyed families (`config add nodes` auto-assigns the next index).
+- `remove` removes an identifier from a listable family (`config remove users root`, `config remove nodes 1`). For
+  index-keyed families only the highest current index can be removed.
 - `ui` launches the embedded web UI.
 
 All commands take a global `--db <path>` flag and respect `KUBE_OF_PIE_DB`; see

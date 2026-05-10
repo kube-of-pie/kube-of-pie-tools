@@ -3,7 +3,6 @@ package kubeofpie.core.registry.nodes
 import java.nio.file.Path
 import kubeofpie.core.registry.VariableRegistry
 import kubeofpie.core.registry.VariableStorage
-import kubeofpie.core.registry.cluster.ClusterNodesCountVariable
 import kubeofpie.core.storage.ConfigDatabase
 import kubeofpie.core.storage.OpenMode
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -16,10 +15,10 @@ import org.junit.jupiter.api.io.TempDir
 class NodesNetworkFamilyTest {
 
     @Test
-    fun `family is empty until cluster_nodes_count is set`(@TempDir tmp: Path) {
+    fun `family is empty until at least one node is added`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage)
-        val family = NodesNetworkFamily(storage, count)
+        val nodes = NodesVariable(storage)
+        val family = NodesNetworkFamily(storage, nodes)
 
         assertEquals(emptyList<String>(), family.keys())
         assertNull(family.variable("nodes.0.network.hostname"))
@@ -28,8 +27,8 @@ class NodesNetworkFamilyTest {
     @Test
     fun `family enumerates five keys per node, one entry per index up to count`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage).also { it.write("2") }
-        val family = NodesNetworkFamily(storage, count)
+        val nodes = NodesVariable(storage).also { it.add(null); it.add(null) }
+        val family = NodesNetworkFamily(storage, nodes)
 
         assertEquals(
             listOf(
@@ -51,8 +50,8 @@ class NodesNetworkFamilyTest {
     @Test
     fun `family resolves each per-node variable with the right metadata`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage).also { it.write("1") }
-        val family = NodesNetworkFamily(storage, count)
+        val nodes = NodesVariable(storage).also { it.add(null) }
+        val family = NodesNetworkFamily(storage, nodes)
 
         val hostname = family.variable("nodes.0.network.hostname")!!
         assertTrue(hostname.writable)
@@ -69,8 +68,8 @@ class NodesNetworkFamilyTest {
     @Test
     fun `family rejects out-of-range indices`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage).also { it.write("1") }
-        val family = NodesNetworkFamily(storage, count)
+        val nodes = NodesVariable(storage).also { it.add(null) }
+        val family = NodesNetworkFamily(storage, nodes)
 
         assertNull(family.variable("nodes.1.network.hostname"))
         assertNull(family.variable("nodes.5.network.dns"))
@@ -79,8 +78,8 @@ class NodesNetworkFamilyTest {
     @Test
     fun `family ignores unrelated keys`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage).also { it.write("1") }
-        val family = NodesNetworkFamily(storage, count)
+        val nodes = NodesVariable(storage).also { it.add(null) }
+        val family = NodesNetworkFamily(storage, nodes)
 
         assertNull(family.variable("setup.keymap"))
         assertNull(family.variable("nodes.0.network.bogus"))
@@ -90,9 +89,9 @@ class NodesNetworkFamilyTest {
     @Test
     fun `registry round-trips per-node values isolated by index`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage).also { it.write("2") }
-        val family = NodesNetworkFamily(storage, count)
-        val registry = VariableRegistry(listOf(count), listOf(family))
+        val nodes = NodesVariable(storage).also { it.add(null); it.add(null) }
+        val family = NodesNetworkFamily(storage, nodes)
+        val registry = VariableRegistry(listOf(nodes), listOf(family))
 
         registry.write("nodes.0.network.hostname", "kop-0")
         registry.write("nodes.1.network.hostname", "kop-1")
@@ -104,9 +103,9 @@ class NodesNetworkFamilyTest {
     @Test
     fun `registry rejects wifi enabled values that are not boolean strings`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val count = ClusterNodesCountVariable(storage).also { it.write("1") }
-        val family = NodesNetworkFamily(storage, count)
-        val registry = VariableRegistry(listOf(count), listOf(family))
+        val nodes = NodesVariable(storage).also { it.add(null) }
+        val family = NodesNetworkFamily(storage, nodes)
+        val registry = VariableRegistry(listOf(nodes), listOf(family))
 
         val ex = assertThrows(IllegalArgumentException::class.java) {
             registry.write("nodes.0.network.wifi.enabled", "yes")

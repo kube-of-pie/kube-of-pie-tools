@@ -14,6 +14,8 @@ import kotlin.system.exitProcess
         ConfigListCommand::class,
         ConfigGetCommand::class,
         ConfigSetCommand::class,
+        ConfigAddCommand::class,
+        ConfigRemoveCommand::class,
     ],
 )
 class ConfigCommand : Runnable {

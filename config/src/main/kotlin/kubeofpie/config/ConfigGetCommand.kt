@@ -2,6 +2,7 @@ package kubeofpie.config
 
 import jakarta.inject.Singleton
 import java.util.concurrent.Callable
+import kubeofpie.core.registry.ListableVariable
 import kubeofpie.core.registry.VariableRegistry
 import kubeofpie.core.storage.ConfigDatabase
 import kubeofpie.core.storage.DatabasePath
@@ -47,6 +48,12 @@ class ConfigGetCommand(
         if (variable == null) {
             System.err.println("unknown variable: $key")
             return 2
+        }
+        if (variable is ListableVariable) {
+            for (id in variable.identifiers()) {
+                println(id)
+            }
+            return 0
         }
         val value = variable.read()
         if (value == null) {

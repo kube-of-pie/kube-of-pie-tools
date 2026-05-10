@@ -18,50 +18,68 @@ import org.junit.jupiter.api.io.TempDir
 class UsersFamilyTest {
 
     @Test
-    fun `users metadata is unbounded JSON-array writable`(@TempDir tmp: Path) {
-        val storage = newStorage(tmp)
-        val users = UsersVariable(storage)
+    fun `users metadata is non-writable listable`(@TempDir tmp: Path) {
+        val users = UsersVariable(newStorage(tmp))
 
         assertEquals("users", users.key)
-        assertTrue(users.writable)
+        assertFalse(users.writable)
         assertEquals(false, users.sensitive)
         assertNull(users.allowedValues())
+        assertEquals(emptyList<String>(), users.identifiers())
     }
 
     @Test
-    fun `users rejects non-array values`(@TempDir tmp: Path) {
+    fun `add appends names and identifiers reflects them in registration order`(@TempDir tmp: Path) {
         val users = UsersVariable(newStorage(tmp))
 
-        val ex = assertThrows(IllegalArgumentException::class.java) {
-            users.write("\"root\"")
-        }
-        assertTrue(ex.message!!.contains("JSON array of strings"))
+        users.add("root")
+        users.add("kubeofpie")
+
+        assertEquals(listOf("root", "kubeofpie"), users.identifiers())
     }
 
     @Test
-    fun `users rejects names that do not match the POSIX shape`(@TempDir tmp: Path) {
+    fun `add rejects names that do not match the POSIX shape`(@TempDir tmp: Path) {
         val users = UsersVariable(newStorage(tmp))
 
-        val ex = assertThrows(IllegalArgumentException::class.java) {
-            users.write("[\"Root\"]")
-        }
+        val ex = assertThrows(IllegalArgumentException::class.java) { users.add("Root") }
         assertTrue(ex.message!!.contains("invalid user name"))
     }
 
     @Test
-    fun `users rejects duplicates`(@TempDir tmp: Path) {
+    fun `add rejects null id`(@TempDir tmp: Path) {
         val users = UsersVariable(newStorage(tmp))
 
-        val ex = assertThrows(IllegalArgumentException::class.java) {
-            users.write("[\"root\",\"root\"]")
+        val ex = assertThrows(IllegalArgumentException::class.java) { users.add(null) }
+        assertTrue(ex.message!!.contains("requires a user name"))
+    }
+
+    @Test
+    fun `add rejects duplicates`(@TempDir tmp: Path) {
+        val users = UsersVariable(newStorage(tmp)).also { it.add("root") }
+
+        val ex = assertThrows(IllegalArgumentException::class.java) { users.add("root") }
+        assertTrue(ex.message!!.contains("already exists"))
+    }
+
+    @Test
+    fun `remove drops a known name and rejects unknown ones`(@TempDir tmp: Path) {
+        val users = UsersVariable(newStorage(tmp)).also {
+            it.add("root")
+            it.add("kubeofpie")
         }
-        assertTrue(ex.message!!.contains("duplicate user name"))
+
+        users.remove("root")
+        assertEquals(listOf("kubeofpie"), users.identifiers())
+
+        val ex = assertThrows(IllegalArgumentException::class.java) { users.remove("nobody") }
+        assertTrue(ex.message!!.contains("not in users"))
     }
 
     @Test
     fun `family enumerates four keys per user, in registration order`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\",\"kubeofpie\"]") }
+        val users = UsersVariable(storage).also { it.add("root"); it.add("kubeofpie") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
 
         assertEquals(
@@ -82,7 +100,7 @@ class UsersFamilyTest {
     @Test
     fun `family resolves password, ssh enabled, and ssh key variables for a known user`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
 
         val password = family.variable("users.root.password")
@@ -111,7 +129,7 @@ class UsersFamilyTest {
     @Test
     fun `family returns null for an unknown user`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
 
         assertNull(family.variable("users.nobody.password"))
@@ -126,9 +144,22 @@ class UsersFamilyTest {
     }
 
     @Test
+    fun `registry rejects writes to the listable users head`(@TempDir tmp: Path) {
+        val storage = newStorage(tmp)
+        val users = UsersVariable(storage)
+        val family = UsersFamily(storage, users, SshKeyGenerator())
+        val registry = VariableRegistry(listOf(users), listOf(family))
+
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            registry.write("users", "[\"root\"]")
+        }
+        assertTrue(ex.message!!.contains("not user-writable"))
+    }
+
+    @Test
     fun `registry routes writes to the per-user password variable`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         val registry = VariableRegistry(listOf(users), listOf(family))
 
@@ -140,7 +171,7 @@ class UsersFamilyTest {
     @Test
     fun `registry rejects writes to the read-only ssh private key`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         val registry = VariableRegistry(listOf(users), listOf(family))
 
@@ -153,7 +184,7 @@ class UsersFamilyTest {
     @Test
     fun `registry rejects writes to the read-only ssh public key`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         val registry = VariableRegistry(listOf(users), listOf(family))
 
@@ -166,7 +197,7 @@ class UsersFamilyTest {
     @Test
     fun `registry accepts ssh enabled writes and rejects values outside the allowed list`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         val registry = VariableRegistry(listOf(users), listOf(family))
 
@@ -185,7 +216,7 @@ class UsersFamilyTest {
     @Test
     fun `ssh keys are not generated while ssh enabled is unset`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
 
         assertNull(family.variable("users.root.ssh.private_key")!!.read())
@@ -197,7 +228,7 @@ class UsersFamilyTest {
     @Test
     fun `ssh keys are not generated while ssh enabled is false`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         family.variable("users.root.ssh.enabled")!!.write("false")
 
@@ -210,7 +241,7 @@ class UsersFamilyTest {
     @Test
     fun `setting ssh enabled to true triggers lazy generation on first read`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         family.variable("users.root.ssh.enabled")!!.write("true")
 
@@ -229,7 +260,7 @@ class UsersFamilyTest {
     @Test
     fun `subsequent reads return the same persisted material`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         family.variable("users.root.ssh.enabled")!!.write("true")
 
@@ -245,7 +276,7 @@ class UsersFamilyTest {
     @Test
     fun `reading public key first generates both halves and the private read matches`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         family.variable("users.root.ssh.enabled")!!.write("true")
 
@@ -261,7 +292,7 @@ class UsersFamilyTest {
     @Test
     fun `keys generated while enabled remain readable after disabling`(@TempDir tmp: Path) {
         val storage = newStorage(tmp)
-        val users = UsersVariable(storage).also { it.write("[\"root\"]") }
+        val users = UsersVariable(storage).also { it.add("root") }
         val family = UsersFamily(storage, users, SshKeyGenerator())
         val sshEnabled = family.variable("users.root.ssh.enabled")!!
         sshEnabled.write("true")
