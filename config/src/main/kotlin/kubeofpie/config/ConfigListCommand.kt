@@ -10,12 +10,12 @@ import kubeofpie.core.storage.NoDatabaseException
 import kubeofpie.core.storage.OpenMode
 import picocli.CommandLine.Command
 import picocli.CommandLine.Mixin
-import picocli.CommandLine.Option
+import picocli.CommandLine.Parameters
 
 @Singleton
 @Command(
     name = "list",
-    description = ["List configuration variables and their metadata."],
+    description = ["List allowed values of a variable, or identifiers of a listable family."],
     mixinStandardHelpOptions = true,
 )
 class ConfigListCommand(
@@ -26,18 +26,8 @@ class ConfigListCommand(
     @Mixin
     lateinit var databaseOptions: DatabaseOptions
 
-    @Option(
-        names = ["--prefix"],
-        paramLabel = "<p>",
-        description = ["Only list variables whose key starts with <p>."],
-    )
-    var prefix: String? = null
-
-    @Option(
-        names = ["--writable-only"],
-        description = ["Hide derived, catalogue-pinned, and generated variables."],
-    )
-    var writableOnly: Boolean = false
+    @Parameters(index = "0", paramLabel = "KEY", description = ["Dotted variable key (e.g. version.alpine)."])
+    lateinit var key: String
 
     override fun call(): Int {
         val path = DatabasePath.resolve(databaseOptions.path)
@@ -47,28 +37,24 @@ class ConfigListCommand(
             System.err.println("no database at ${e.path}")
             return 2
         }
-        for (variable in registry.list(prefix, writableOnly)) {
-            val allowed = variable.allowedValues()?.joinToString(", ", "[", "]") ?: "(unbounded)"
-            val flags = buildList {
-                if (!variable.writable) add("read-only")
-                if (variable.sensitive) add("sensitive")
-                if (variable is ListableVariable) add("listable")
-            }.joinToString(", ").ifEmpty { "writable" }
-            if (variable is ListableVariable) {
-                println("${variable.key}:")
-                for (id in variable.identifiers()) {
-                    println("  $id")
-                }
-            } else {
-                val value = when {
-                    variable.sensitive -> "<redacted>"
-                    else -> variable.read() ?: "<unset>"
-                }
-                println("${variable.key} = $value")
+        val variable = registry.read(key)
+        if (variable == null) {
+            System.err.println("unknown variable: $key")
+            return 2
+        }
+        if (variable is ListableVariable) {
+            for (id in variable.identifiers()) {
+                println(id)
             }
-            println("  ${variable.description}")
-            println("  allowed: $allowed")
-            println("  flags:   $flags")
+        } else {
+            val allowed = variable.allowedValues()
+            if (allowed == null) {
+                println("(unbounded)")
+            } else {
+                for (value in allowed) {
+                    println(value)
+                }
+            }
         }
         return 0
     }

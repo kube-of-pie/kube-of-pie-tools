@@ -28,11 +28,10 @@ class ConfigCommandTest {
         assertEquals("3.21", read.out.trim())
 
         val list = capture {
-            PicocliRunner.execute(ConfigCommand::class.java, "list", "--db", dbPath)
+            PicocliRunner.execute(ConfigCommand::class.java, "list", "version.alpine", "--db", dbPath)
         }
         assertEquals(0, list.exitCode)
-        assertTrue(list.out.contains("version.alpine = 3.21"), list.out)
-        assertTrue(list.out.contains("[3.21]"), list.out)
+        assertEquals("3.21", list.out.trim())
     }
 
     @Test
@@ -85,11 +84,10 @@ class ConfigCommandTest {
         assertEquals(0, secondAdd.exitCode)
 
         val list = capture {
-            PicocliRunner.execute(ConfigCommand::class.java, "list", "--prefix", "users", "--db", dbPath)
+            PicocliRunner.execute(ConfigCommand::class.java, "list", "users", "--db", dbPath)
         }
         assertEquals(0, list.exitCode)
-        assertTrue(list.out.contains("users:\n  root\n  kubeofpie"), list.out)
-        assertTrue(list.out.contains("listable"), list.out)
+        assertEquals("root\nkubeofpie", list.out.trim())
 
         val get = capture {
             PicocliRunner.execute(ConfigCommand::class.java, "get", "users", "--db", dbPath)
@@ -176,6 +174,30 @@ class ConfigCommandTest {
         }
         assertEquals(2, result.exitCode)
         assertTrue(result.err.contains("not user-writable"), result.err)
+    }
+
+    @Test
+    fun `list on an unbounded variable prints (unbounded)`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "users", "root", "--db", dbPath)
+
+        val list = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "list", "users.root.password", "--db", dbPath)
+        }
+        assertEquals(0, list.exitCode)
+        assertEquals("(unbounded)", list.out.trim())
+    }
+
+    @Test
+    fun `list on an unknown variable fails with unknown variable`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+        PicocliRunner.execute(ConfigCommand::class.java, "set", "version.alpine", "3.21", "--db", dbPath)
+
+        val result = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "list", "nope", "--db", dbPath)
+        }
+        assertEquals(2, result.exitCode)
+        assertTrue(result.err.contains("unknown variable: nope"), result.err)
     }
 
     private data class CapturedRun(val exitCode: Int, val out: String, val err: String)

@@ -20,7 +20,7 @@ Both go through the same `core` registry, so anything one can do, the other can 
 The CLI is a thin wrapper over the registry:
 
 ```sh
-config list [--prefix <p>] [--writable-only]
+config list <key>
 config get <key> [--reveal]
 config set <key> <value>
 config add <key> [<id>]
@@ -28,8 +28,8 @@ config remove <key> <id>
 config ui
 ```
 
-- `list` enumerates variables; metadata (description, writable, allowed values, sensitive) is shown alongside. Listable
-  family heads (`users`, `nodes`) print one identifier per line instead of a single value.
+- `list` prints the allowed values of `<key>` one per line, or — for listable family heads (`users`, `nodes`) — the
+  current identifiers one per line. Variables with an unbounded domain print `(unbounded)`.
 - `get` prints a single variable's current value and metadata. Sensitive values are redacted unless `--reveal` is
   passed. For listable heads, the identifiers are printed one per line.
 - `set` writes a value. The registry validates against the allowed-values list and the writable flag; non-writable keys
