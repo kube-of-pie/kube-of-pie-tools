@@ -1,20 +1,31 @@
 package kubeofpie.core.catalogue
 
+import com.fasterxml.jackson.annotation.JsonProperty
+import io.micronaut.core.type.Argument
+import io.micronaut.json.tree.JsonNode
+import io.micronaut.serde.ObjectMapper
+import io.micronaut.serde.annotation.Serdeable
 import jakarta.inject.Singleton
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.jar.JarFile
+import org.yaml.snakeyaml.Yaml
 
 /**
  * Catalogue of Alpine releases the toolchain knows how to target. The supported set is
  * derived from the YAML files shipped under `classpath:alpine/<version>.yaml`: dropping a
- * new file there is the only step required to add support for a new release. The YAML
- * payload itself (download URL, apk repositories, dependencies) ships with the resource
- * but is not parsed yet — future image / inventory generators will read it.
+ * new file there is the only step required to add support for a new release.
+ *
+ * Each YAML carries a templated `download_url` whose architecture component is the
+ * placeholder `{arch}`; [downloadUrl] substitutes that placeholder with the architecture
+ * the caller targets (typically obtained from [RaspberryPiCatalogue] via the configured
+ * Pi model). YAML is parsed by SnakeYAML and bound to [AlpineYaml] through Micronaut
+ * Serde via [JsonNode.from] and [ObjectMapper.readValueFromTree], keeping the type-safe
+ * deserialization reflection-free under GraalVM `native-image`.
  */
 @Singleton
-class AlpineCatalogue {
+class AlpineCatalogue(private val mapper: ObjectMapper) {
 
     /** Supported Alpine version identifiers (e.g. `"3.21"`), sorted ascending. */
     fun supportedVersions(): List<String> {
@@ -25,6 +36,25 @@ class AlpineCatalogue {
             "jar" -> listFromJar(baseUrl)
             else -> error("unsupported resource URL scheme: $baseUrl")
         }.sorted()
+    }
+
+    /**
+     * Concrete download URL of the Alpine `rpi` archive for [version] on [architecture],
+     * or `null` when [version] is not in [supportedVersions]. The architecture identifier
+     * must match Alpine's path convention (`aarch64`, `armv7`, `armhf`) — exactly the
+     * value [RaspberryPiCatalogue] returns per supported Pi model.
+     */
+    fun downloadUrl(version: String, architecture: String): String? =
+        release(version)?.downloadUrl?.replace(ARCH_PLACEHOLDER, architecture)
+
+    private fun release(version: String): AlpineYaml? {
+        val resourceName = "$RESOURCE_DIR$version$YAML_SUFFIX"
+        val raw = javaClass.classLoader.getResourceAsStream(resourceName) ?: return null
+        val parsed: Any? = raw.use { Yaml().load(it) }
+        return mapper.readValueFromTree(
+            JsonNode.from(parsed),
+            Argument.of(AlpineYaml::class.java),
+        )
     }
 
     private fun listFromDirectory(url: URL): List<String> =
@@ -54,5 +84,16 @@ class AlpineCatalogue {
     private companion object {
         const val RESOURCE_DIR = "alpine/"
         const val YAML_SUFFIX = ".yaml"
+        const val ARCH_PLACEHOLDER = "{arch}"
     }
 }
+
+/**
+ * On-disk shape of `classpath:alpine/<version>.yaml`. Only [downloadUrl] is consumed
+ * today; the remaining fields (repositories, dependencies, ...) ship in the YAML for
+ * future use and are tolerated as unknown by the deserializer.
+ */
+@Serdeable
+internal data class AlpineYaml(
+    @param:JsonProperty("download_url") val downloadUrl: String,
+)
