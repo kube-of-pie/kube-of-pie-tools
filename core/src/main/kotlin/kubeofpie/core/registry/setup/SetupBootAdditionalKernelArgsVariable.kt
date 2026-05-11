@@ -1,56 +1,41 @@
 package kubeofpie.core.registry.setup
 
-import com.fasterxml.jackson.core.JacksonException
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.inject.Singleton
+import kubeofpie.core.catalogue.AlpineCatalogue
 import kubeofpie.core.registry.Variable
-import kubeofpie.core.registry.VariableStorage
+import kubeofpie.core.registry.VersionAlpineVariable
 
 /**
- * Extra `cmdline.txt` arguments appended at first boot (e.g. `cgroup_memory=1`,
- * `cgroup_enable=memory`).
+ * Required `cmdline.txt` arguments appended at first boot. The set is dictated by the
+ * kernel that ships with the configured `version.alpine` (e.g. `cgroup_memory=1`,
+ * `cgroup_enable=memory` for Kubernetes' cgroup driver), so the value is read-only and
+ * sourced from [AlpineCatalogue].
  *
- * The list is stored as a JSON-array-of-strings string in the single `value`
- * column, so the existing `(key, value)` schema can carry it without a
- * migration. Callers see and write JSON; [write] validates the shape strictly
- * (each element must be a JSON string, not a coerced number) before
- * persisting.
+ * The returned string is in `cmdline.txt` form — args separated by single spaces — so a
+ * consumer can splice it directly into the boot config without parsing.
  */
 @Singleton
 class SetupBootAdditionalKernelArgsVariable(
-    private val storage: VariableStorage,
+    private val alpine: VersionAlpineVariable,
+    private val catalogue: AlpineCatalogue,
 ) : Variable {
 
     override val key: String = "setup.boot.additional_kernel_args"
     override val description: String =
-        "Extra Linux kernel cmdline arguments, JSON array of strings " +
-            "(e.g. [\"cgroup_memory=1\",\"cgroup_enable=memory\"])."
-    override val writable: Boolean = true
+        "Required Linux kernel cmdline arguments for the configured version.alpine, " +
+            "space-separated as they appear in cmdline.txt."
+    override val writable: Boolean = false
     override val sensitive: Boolean = false
 
     override fun allowedValues(): List<String>? = null
 
-    override fun read(): String? = storage.read(key)
-
-    override fun write(value: String) {
-        val node = try {
-            mapper.readTree(value)
-        } catch (e: JacksonException) {
-            throw badShape(value, e)
-        }
-        if (!node.isArray || !node.all { it.isTextual }) {
-            throw badShape(value, null)
-        }
-        storage.write(key, mapper.writeValueAsString(node))
+    override fun read(): String? {
+        val version = alpine.read() ?: return null
+        val args = catalogue.kernelArgs(version) ?: return null
+        return args.joinToString(" ")
     }
 
-    private fun badShape(value: String, cause: Throwable?): IllegalArgumentException =
-        IllegalArgumentException(
-            "value for $key must be a JSON array of strings, got: $value",
-            cause,
-        )
-
-    private companion object {
-        private val mapper: ObjectMapper = ObjectMapper()
-    }
+    override fun write(value: String): Unit = throw UnsupportedOperationException(
+        "$key is derived from version.alpine; set version.alpine instead.",
+    )
 }

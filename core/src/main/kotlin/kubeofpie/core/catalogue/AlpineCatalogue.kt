@@ -47,6 +47,14 @@ class AlpineCatalogue(private val mapper: ObjectMapper) {
     fun downloadUrl(version: String, architecture: String): String? =
         release(version)?.downloadUrl?.replace(ARCH_PLACEHOLDER, architecture)
 
+    /**
+     * Required `cmdline.txt` kernel arguments for [version], or `null` when [version] is
+     * not in [supportedVersions]. The list is determined by the kernel that ships with
+     * the chosen Alpine release (e.g. `cgroup_memory=1`, `cgroup_enable=memory` for the
+     * cgroup driver Kubernetes needs); it is not user-configurable.
+     */
+    fun kernelArgs(version: String): List<String>? = release(version)?.kernelArgs
+
     private fun release(version: String): AlpineYaml? {
         val resourceName = "$RESOURCE_DIR$version$YAML_SUFFIX"
         val raw = javaClass.classLoader.getResourceAsStream(resourceName) ?: return null
@@ -89,11 +97,12 @@ class AlpineCatalogue(private val mapper: ObjectMapper) {
 }
 
 /**
- * On-disk shape of `classpath:alpine/<version>.yaml`. Only [downloadUrl] is consumed
- * today; the remaining fields (repositories, dependencies, ...) ship in the YAML for
- * future use and are tolerated as unknown by the deserializer.
+ * On-disk shape of `classpath:alpine/<version>.yaml`. The remaining fields
+ * (repositories, dependencies, ...) ship in the YAML for future use and are
+ * tolerated as unknown by the deserializer.
  */
 @Serdeable
 internal data class AlpineYaml(
     @param:JsonProperty("download_url") val downloadUrl: String,
+    @param:JsonProperty("kernel_args") val kernelArgs: List<String>,
 )

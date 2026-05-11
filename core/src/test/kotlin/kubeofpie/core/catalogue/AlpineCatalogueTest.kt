@@ -42,6 +42,23 @@ class AlpineCatalogueTest {
         }
     }
 
+    @Test
+    fun `kernelArgs returns the cgroup args required by the kernel shipped with the version`() {
+        withCatalogue { catalogue ->
+            assertEquals(
+                listOf("cgroup_memory=1", "cgroup_enable=memory"),
+                catalogue.kernelArgs("3.21"),
+            )
+        }
+    }
+
+    @Test
+    fun `kernelArgs returns null for an unknown version`() {
+        withCatalogue { catalogue ->
+            assertNull(catalogue.kernelArgs("3.99"))
+        }
+    }
+
     private fun withCatalogue(block: (AlpineCatalogue) -> Unit) {
         ApplicationContext.run().use { ctx ->
             block(ctx.getBean(AlpineCatalogue::class.java))
