@@ -54,15 +54,19 @@ one themselves.
 Configuration entries are exposed as a flat namespace of **dotted-key variables** — for example `version.alpine`,
 `version.kubernetes`, or `kubernetes.network.pod_subnet`. Dynamic-key entries live under family heads:
 
-- `nodes.<i>.…` — per-node settings, where `<i>` is the node's positional index in the cluster
-  (`nodes.0.network.hostname`, `nodes.0.model`, `nodes.1.network.dns`, …).
+- `nodes.<id>.…` — per-node settings, where `<id>` is a user-supplied DNS / RFC-1123 label
+  (`nodes.master.network.hostname`, `nodes.master.model`, `nodes.worker-1.network.dns`, …).
 - `users.<name>.…` — per-user settings, where `<name>` is a Linux user name
   (`users.root.password`, `users.kubeofpie.ssh.enabled`, …).
 
 The family heads themselves (`nodes`, `users`) are **listable variables** — non-writable entries whose value is the set
 of identifiers under that family. They are not set with `config set`; membership is changed with the dedicated
-`config add <family> [<id>]` and `config remove <family> <id>` commands. The CLI's `list` and `get` render them as one
+`config add <family> <id>` and `config remove <family> <id>` commands. The CLI's `list` and `get` render them as one
 identifier per line.
+
+Underneath the variable surface, `nodes` and `users` are full entities — each lives in its own SQLite table and is
+managed by a typed `NodeManager` / `UserManager` (Micronaut Data JDBC repositories underneath). The variable layer is a
+thin adapter the CLI relies on; the future web UI calls the managers directly without going through dotted keys.
 
 The library does not just hand callers raw values; each variable carries metadata that the CLI and web UI drive their UX
 from:
@@ -100,7 +104,7 @@ Catalogues are read-only data baked into the library. They carry the facts the t
 supported piece of hardware and each supported Alpine release.
 
 The variable registry consumes them to compute allowed values for keys whose domain is fixed by the catalogue — for
-example `nodes.<i>.model` (drawn from the Pi catalogue), `version.alpine` (drawn from the Alpine catalogue), or
+example `nodes.<id>.model` (drawn from the Pi catalogue), `version.alpine` (drawn from the Alpine catalogue), or
 `version.kubernetes` (intersected with the apk repositories of the selected `version.alpine`).
 
 ### Raspberry Pi models

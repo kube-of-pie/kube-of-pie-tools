@@ -1,0 +1,7 @@
+micronaut:
+  data:
+    naming-strategy: io.micronaut.data.model.naming.NamingStrategies$UnderScoreSeparatedLowerCase
+
+datasources:
+  default:
+    dialect: ANSI

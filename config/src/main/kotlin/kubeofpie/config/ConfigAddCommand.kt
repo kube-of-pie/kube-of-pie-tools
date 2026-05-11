@@ -32,7 +32,7 @@ class ConfigAddCommand(
         index = "1",
         paramLabel = "ID",
         arity = "0..1",
-        description = ["Identifier to add (required for users; optional for nodes — auto-assigned)."],
+        description = ["Identifier to add (required)."],
     )
     var id: String? = null
 

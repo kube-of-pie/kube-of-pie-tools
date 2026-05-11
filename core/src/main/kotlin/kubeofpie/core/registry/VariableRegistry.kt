@@ -3,9 +3,11 @@ package kubeofpie.core.registry
 import jakarta.inject.Singleton
 
 /**
- * Public surface of the kube-of-pie configuration. The CLI tools and the web UI go
- * through this registry exclusively — SQLite, Flyway, and other persistence details sit
- * behind individual [Variable] implementations.
+ * Public surface of the kube-of-pie configuration for the CLI. The web UI talks to
+ * the entity managers (`NodeManager`, `UserManager`) directly; this registry is the
+ * dotted-key view the CLI relies on. SQLite, Flyway, and other persistence details
+ * sit behind individual [Variable] implementations and (for nodes/users) those
+ * managers.
  *
  * Every `@Singleton Variable` bean on the classpath is collected via constructor
  * injection and exposed by its dotted key. [VariableFamily] beans contribute

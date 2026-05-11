@@ -1,26 +1,22 @@
 package kubeofpie.core.registry.users
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.inject.Singleton
 import kubeofpie.core.registry.ListableVariable
-import kubeofpie.core.registry.VariableStorage
+import kubeofpie.core.business.users.UserManager
 
 /**
- * Cluster-wide list of Linux user accounts to create on every node. Stored as a JSON array
- * of strings (e.g. `["root","kubeofpie"]`). Each entry expands — via [UsersFamily] — into
- * its own `users.<name>.password`, `users.<name>.ssh.enabled`, and
- * `users.<name>.ssh.{private,public}_key` keys.
+ * Cluster-wide list of Linux user accounts to create on every node. Adapter over
+ * [UserManager]; the `users` SQLite table and all business logic (POSIX name
+ * validation, lazy SSH key generation) live in the manager. Each user expands — via
+ * [UsersFamily] — into its own `users.<name>.password`, `users.<name>.ssh.enabled`,
+ * and `users.<name>.ssh.{private,public}_key` keys.
  *
- * The variable is a [ListableVariable] family head: it is not user-writable, the CLI's
- * `list` and `get` render the identifiers one per line, and membership is changed through
- * [add] / [remove] (driven by `config add users <name>` / `config remove users <name>`).
- *
- * Names must match the conservative POSIX user-name shape used by `useradd`
- * (`[a-z_][a-z0-9_-]*`); anything else is rejected at [add] time so we never persist names
- * that would break the family's key parsing.
+ * Listable head — not user-writable. Names are added through
+ * `config add users <name>` (validated by the manager) and removed through
+ * `config remove users <name>`.
  */
 @Singleton
-class UsersVariable(private val storage: VariableStorage) : ListableVariable {
+class UsersVariable(private val manager: UserManager) : ListableVariable {
 
     override val key: String = "users"
     override val description: String =
@@ -30,33 +26,17 @@ class UsersVariable(private val storage: VariableStorage) : ListableVariable {
 
     override fun allowedValues(): List<String>? = null
 
-    override fun read(): String? = storage.read(key)
+    override fun read(): String? = null
 
-    override fun identifiers(): List<String> {
-        val raw = storage.read(key) ?: return emptyList()
-        val node = mapper.readTree(raw)
-        return node.map { it.textValue() }
-    }
+    override fun identifiers(): List<String> = manager.list()
 
     override fun add(id: String?): String {
         val name = requireNotNull(id) { "$key requires a user name (got null)" }
-        require(USER_NAME.matches(name)) {
-            "invalid user name '$name' for $key: must match ${USER_NAME.pattern}"
-        }
-        val current = identifiers()
-        require(name !in current) { "user '$name' already exists in $key" }
-        storage.write(key, mapper.writeValueAsString(current + name))
+        manager.add(name)
         return name
     }
 
     override fun remove(id: String) {
-        val current = identifiers()
-        require(id in current) { "user '$id' is not in $key" }
-        storage.write(key, mapper.writeValueAsString(current - id))
-    }
-
-    private companion object {
-        private val mapper: ObjectMapper = ObjectMapper()
-        private val USER_NAME = Regex("^[a-z_][a-z0-9_-]*$")
+        manager.remove(id)
     }
 }

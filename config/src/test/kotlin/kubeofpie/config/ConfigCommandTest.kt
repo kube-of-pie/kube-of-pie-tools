@@ -115,43 +115,71 @@ class ConfigCommandTest {
     }
 
     @Test
-    fun `add nodes auto-assigns sequential indices`(@TempDir tmp: Path) {
+    fun `add nodes accepts DNS-label ids and rejects malformed ones`(@TempDir tmp: Path) {
         val dbPath = tmp.resolve("kop.db").toString()
 
         val first = capture {
-            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "master", "--db", dbPath)
         }
         assertEquals(0, first.exitCode)
-        assertTrue(first.out.contains("added nodes.0"), first.out)
+        assertTrue(first.out.contains("added nodes.master"), first.out)
 
         val second = capture {
-            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "worker-1", "--db", dbPath)
         }
         assertEquals(0, second.exitCode)
-        assertTrue(second.out.contains("added nodes.1"), second.out)
+        assertTrue(second.out.contains("added nodes.worker-1"), second.out)
+
+        val uppercase = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "Master", "--db", dbPath)
+        }
+        assertEquals(2, uppercase.exitCode)
+        assertTrue(uppercase.err.contains("invalid node id"), uppercase.err)
+
+        val underscore = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "node_1", "--db", dbPath)
+        }
+        assertEquals(2, underscore.exitCode)
+        assertTrue(underscore.err.contains("invalid node id"), underscore.err)
 
         val get = capture {
             PicocliRunner.execute(ConfigCommand::class.java, "get", "nodes", "--db", dbPath)
         }
-        assertEquals("0\n1", get.out.trim())
+        assertEquals("master\nworker-1", get.out.trim())
     }
 
     @Test
-    fun `remove nodes only accepts the highest index`(@TempDir tmp: Path) {
+    fun `add nodes requires an id`(@TempDir tmp: Path) {
         val dbPath = tmp.resolve("kop.db").toString()
-        PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
-        PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
 
-        val rejected = capture {
-            PicocliRunner.execute(ConfigCommand::class.java, "remove", "nodes", "0", "--db", dbPath)
+        val result = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "--db", dbPath)
         }
-        assertEquals(2, rejected.exitCode)
-        assertTrue(rejected.err.contains("highest index"), rejected.err)
+        assertEquals(2, result.exitCode)
+        assertTrue(result.err.contains("requires a node id"), result.err)
+    }
+
+    @Test
+    fun `remove nodes drops a known id and rejects unknown ones`(@TempDir tmp: Path) {
+        val dbPath = tmp.resolve("kop.db").toString()
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "master", "--db", dbPath)
+        PicocliRunner.execute(ConfigCommand::class.java, "add", "nodes", "worker-1", "--db", dbPath)
+
+        val unknown = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "remove", "nodes", "ghost", "--db", dbPath)
+        }
+        assertEquals(2, unknown.exitCode)
+        assertTrue(unknown.err.contains("not registered"), unknown.err)
 
         val accepted = capture {
-            PicocliRunner.execute(ConfigCommand::class.java, "remove", "nodes", "1", "--db", dbPath)
+            PicocliRunner.execute(ConfigCommand::class.java, "remove", "nodes", "master", "--db", dbPath)
         }
         assertEquals(0, accepted.exitCode)
+
+        val get = capture {
+            PicocliRunner.execute(ConfigCommand::class.java, "get", "nodes", "--db", dbPath)
+        }
+        assertEquals("worker-1", get.out.trim())
     }
 
     @Test

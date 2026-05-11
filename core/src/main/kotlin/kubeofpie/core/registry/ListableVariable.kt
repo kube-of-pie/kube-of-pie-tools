@@ -27,20 +27,15 @@ interface ListableVariable : Variable {
     fun identifiers(): List<String>
 
     /**
-     * Add a new identifier and return the value that was actually stored.
+     * Add a new identifier and return the value that was actually stored. Both nodes and
+     * users are name-keyed: [id] must be supplied and pass the family's validation regex.
      *
-     * Implementations decide whether [id] must be supplied: name-keyed families (e.g. users)
-     * require it; index-keyed families (e.g. nodes) auto-assign when [id] is `null` and only
-     * accept an explicit value when it equals the index that would be auto-assigned.
-     *
-     * Throws [IllegalArgumentException] if [id] is missing where required, malformed, or
-     * already present.
+     * Throws [IllegalArgumentException] if [id] is missing, malformed, or already present.
      */
     fun add(id: String?): String
 
     /**
-     * Remove [id] from the family. Throws [IllegalArgumentException] if [id] is unknown
-     * or — for index-keyed families — not the highest current index.
+     * Remove [id] from the family. Throws [IllegalArgumentException] if [id] is unknown.
      */
     fun remove(id: String)
 }

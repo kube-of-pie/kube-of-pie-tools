@@ -1,8 +1,9 @@
 package kubeofpie.core.registry.nodes
 
+import io.micronaut.context.ApplicationContext
 import java.nio.file.Path
+import kubeofpie.core.business.nodes.NodeManager
 import kubeofpie.core.registry.VariableRegistry
-import kubeofpie.core.registry.VariableStorage
 import kubeofpie.core.storage.ConfigDatabase
 import kubeofpie.core.storage.OpenMode
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -16,73 +17,73 @@ import org.junit.jupiter.api.io.TempDir
 class NodesVariableTest {
 
     @Test
-    fun `metadata is non-writable listable`(@TempDir tmp: Path) {
-        val nodes = NodesVariable(newStorage(tmp))
-
+    fun `metadata is non-writable listable`(@TempDir tmp: Path) = withNodes(tmp) { nodes, _ ->
         assertEquals("nodes", nodes.key)
         assertFalse(nodes.writable)
         assertEquals(false, nodes.sensitive)
         assertNull(nodes.allowedValues())
+        assertNull(nodes.read())
         assertEquals(emptyList<String>(), nodes.identifiers())
     }
 
     @Test
-    fun `add appends sequential indices starting at 0`(@TempDir tmp: Path) {
-        val nodes = NodesVariable(newStorage(tmp))
-
-        assertEquals("0", nodes.add(null))
-        assertEquals("1", nodes.add(null))
-        assertEquals("2", nodes.add(null))
-
-        assertEquals(listOf("0", "1", "2"), nodes.identifiers())
-    }
-
-    @Test
-    fun `add accepts an explicit id only when it equals the next index`(@TempDir tmp: Path) {
-        val nodes = NodesVariable(newStorage(tmp))
-
-        assertEquals("0", nodes.add("0"))
-        val ex = assertThrows(IllegalArgumentException::class.java) { nodes.add("5") }
-        assertTrue(ex.message!!.contains("next index"))
-    }
-
-    @Test
-    fun `remove only accepts the highest current index`(@TempDir tmp: Path) {
-        val nodes = NodesVariable(newStorage(tmp)).also {
-            it.add(null); it.add(null); it.add(null)
+    fun `add delegates to the manager and identifiers reflects state`(@TempDir tmp: Path) =
+        withNodes(tmp) { nodes, _ ->
+            assertEquals("master", nodes.add("master"))
+            assertEquals("worker-1", nodes.add("worker-1"))
+            assertEquals(listOf("master", "worker-1"), nodes.identifiers())
         }
 
-        val ex = assertThrows(IllegalArgumentException::class.java) { nodes.remove("0") }
-        assertTrue(ex.message!!.contains("highest index"))
-
-        nodes.remove("2")
-        assertEquals(listOf("0", "1"), nodes.identifiers())
+    @Test
+    fun `add rejects null id`(@TempDir tmp: Path) = withNodes(tmp) { nodes, _ ->
+        val ex = assertThrows(IllegalArgumentException::class.java) { nodes.add(null) }
+        assertTrue(ex.message!!.contains("requires a node id"), ex.message)
     }
 
     @Test
-    fun `remove on an empty family is rejected`(@TempDir tmp: Path) {
-        val nodes = NodesVariable(newStorage(tmp))
-
-        val ex = assertThrows(IllegalArgumentException::class.java) { nodes.remove("0") }
-        assertTrue(ex.message!!.contains("no nodes to remove"))
-    }
-
-    @Test
-    fun `registry rejects writes to the listable nodes head`(@TempDir tmp: Path) {
-        val nodes = NodesVariable(newStorage(tmp))
-        val registry = VariableRegistry(listOf(nodes), emptyList())
-
-        val ex = assertThrows(IllegalArgumentException::class.java) {
-            registry.write("nodes", "3")
+    fun `add rejects ids that violate the DNS label shape`(@TempDir tmp: Path) =
+        withNodes(tmp) { nodes, _ ->
+            val ex = assertThrows(IllegalArgumentException::class.java) { nodes.add("Master") }
+            assertTrue(ex.message!!.contains("invalid node id"), ex.message)
         }
-        assertTrue(ex.message!!.contains("not user-writable"))
+
+    @Test
+    fun `add rejects duplicates`(@TempDir tmp: Path) = withNodes(tmp) { nodes, _ ->
+        nodes.add("master")
+        val ex = assertThrows(IllegalArgumentException::class.java) { nodes.add("master") }
+        assertTrue(ex.message!!.contains("already exists"), ex.message)
     }
 
-    private fun newStorage(tmp: Path): VariableStorage = VariableStorage(openDatabase(tmp))
+    @Test
+    fun `remove drops a known id and rejects unknown ones`(@TempDir tmp: Path) =
+        withNodes(tmp) { nodes, _ ->
+            nodes.add("master")
+            nodes.add("worker-1")
 
-    private fun openDatabase(tmp: Path): ConfigDatabase {
-        val database = ConfigDatabase()
-        database.open(tmp.resolve("kop.db"), OpenMode.READ_WRITE)
-        return database
+            nodes.remove("master")
+            assertEquals(listOf("worker-1"), nodes.identifiers())
+
+            val ex = assertThrows(IllegalArgumentException::class.java) { nodes.remove("ghost") }
+            assertTrue(ex.message!!.contains("not registered"), ex.message)
+        }
+
+    @Test
+    fun `registry rejects writes to the listable nodes head`(@TempDir tmp: Path) =
+        withNodes(tmp) { nodes, _ ->
+            val registry = VariableRegistry(listOf(nodes), emptyList())
+
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                registry.write("nodes", "[\"master\"]")
+            }
+            assertTrue(ex.message!!.contains("not user-writable"), ex.message)
+        }
+
+    private fun withNodes(tmp: Path, block: (NodesVariable, NodeManager) -> Unit) {
+        ApplicationContext.run().use { ctx ->
+            ctx.getBean(ConfigDatabase::class.java)
+                .open(tmp.resolve("kop.db"), OpenMode.READ_WRITE)
+            val manager = ctx.getBean(NodeManager::class.java)
+            block(NodesVariable(manager), manager)
+        }
     }
 }

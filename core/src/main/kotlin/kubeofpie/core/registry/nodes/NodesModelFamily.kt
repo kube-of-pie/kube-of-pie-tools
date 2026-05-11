@@ -1,58 +1,52 @@
 package kubeofpie.core.registry.nodes
 
 import jakarta.inject.Singleton
-import kubeofpie.core.catalogue.RaspberryPiCatalogue
+import kubeofpie.core.business.nodes.NodeManager
 import kubeofpie.core.registry.Variable
 import kubeofpie.core.registry.VariableFamily
-import kubeofpie.core.registry.VariableStorage
 
 /**
- * Per-node Raspberry Pi model assignment under `nodes.<i>.model`. The index range
- * is `0` to [NodesVariable]`.identifiers().size - 1`; the family is empty until at
- * least one node has been added.
+ * Per-node Raspberry Pi model assignment under `nodes.<id>.model`. The family is
+ * empty until at least one node has been added.
  *
- * Allowed values for each `nodes.<i>.model` are drawn live from
- * [RaspberryPiCatalogue.supportedModelIds] — adding a new model file under
- * `classpath:raspberrypi/<id>.yaml` is enough to make it selectable. The chosen
- * model determines the Alpine architecture, which in turn drives the download URL
- * resolved through [kubeofpie.core.catalogue.AlpineCatalogue.downloadUrl].
+ * Allowed values for each `nodes.<id>.model` are drawn live from
+ * [NodeManager.allowedModels] (which itself delegates to the Raspberry Pi catalogue) —
+ * dropping a new model file under `classpath:raspberrypi/<id>.yaml` is enough to make
+ * it selectable. The chosen model drives the Alpine architecture, which in turn drives
+ * the download URL resolved through
+ * [kubeofpie.core.catalogue.AlpineCatalogue.downloadUrl].
  */
 @Singleton
-class NodesModelFamily(
-    private val storage: VariableStorage,
-    private val nodes: NodesVariable,
-    private val catalogue: RaspberryPiCatalogue,
-) : VariableFamily {
+class NodesModelFamily(private val manager: NodeManager) : VariableFamily {
 
     override fun keys(): List<String> =
-        nodes.identifiers().map { i -> "nodes.$i.model" }
+        manager.list().map { id -> "nodes.$id.model" }
 
     override fun variable(key: String): Variable? {
         val match = PATTERN.matchEntire(key) ?: return null
-        val (rawIndex) = match.destructured
-        if (rawIndex !in nodes.identifiers()) return null
-        return NodeModelVariable(storage, catalogue, rawIndex.toInt())
+        val (name) = match.destructured
+        if (name !in manager.list()) return null
+        return NodeModelVariable(manager, name)
     }
 
     private companion object {
-        private val PATTERN = Regex("^nodes\\.(\\d+)\\.model$")
+        private val PATTERN = Regex("^nodes\\.([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\\.model$")
     }
 }
 
 internal class NodeModelVariable(
-    private val storage: VariableStorage,
-    private val catalogue: RaspberryPiCatalogue,
-    index: Int,
+    private val manager: NodeManager,
+    private val name: String,
 ) : Variable {
-    override val key: String = "nodes.$index.model"
+    override val key: String = "nodes.$name.model"
     override val description: String =
-        "Raspberry Pi model assigned to node $index; selects the Alpine architecture."
+        "Raspberry Pi model assigned to node '$name'; selects the Alpine architecture."
     override val writable: Boolean = true
     override val sensitive: Boolean = false
 
-    override fun allowedValues(): List<String> = catalogue.supportedModelIds()
+    override fun allowedValues(): List<String> = manager.allowedModels()
 
-    override fun read(): String? = storage.read(key)
+    override fun read(): String? = manager.get(name)?.model
 
-    override fun write(value: String) = storage.write(key, value)
+    override fun write(value: String) = manager.setModel(name, value)
 }

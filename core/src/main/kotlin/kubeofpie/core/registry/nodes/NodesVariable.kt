@@ -1,54 +1,41 @@
 package kubeofpie.core.registry.nodes
 
 import jakarta.inject.Singleton
+import kubeofpie.core.business.nodes.NodeManager
 import kubeofpie.core.registry.ListableVariable
-import kubeofpie.core.registry.VariableStorage
 
 /**
- * Cluster nodes, identified by their positional index (`0`, `1`, ...). The count of
- * indices drives the per-node families (`nodes.<i>.network.…`, ...): they enumerate
- * keys for indices `0` through `identifiers().size - 1`.
+ * Cluster nodes, identified by a user-supplied DNS / RFC-1123 label (e.g. `master`,
+ * `worker-1`, `pi5-east`). Adapter over [NodeManager]; the `nodes` SQLite table and
+ * all business logic live in the manager. Per-node families
+ * (`nodes.<id>.network.…`, `nodes.<id>.model`, `nodes.<id>.kernel_args`) enumerate
+ * keys for the IDs returned by [identifiers].
  *
- * Stored as the count of nodes; identifiers are derived as `0..count-1`. The variable
- * is a non-writable [ListableVariable]: indices grow only through [add] (which
- * auto-assigns the next index) and shrink through [remove] (which only accepts the
- * highest current index, to avoid renumbering existing per-node data).
+ * Listable head — not user-writable. IDs are added through `config add nodes <id>`
+ * (validated by the manager) and removed through `config remove nodes <id>`.
  */
 @Singleton
-class NodesVariable(private val storage: VariableStorage) : ListableVariable {
+class NodesVariable(private val manager: NodeManager) : ListableVariable {
 
     override val key: String = "nodes"
     override val description: String =
-        "Cluster node indices. Manage with `config add nodes` and " +
-            "`config remove nodes <index>`."
+        "Cluster node identifiers. Manage with `config add nodes <id>` and " +
+            "`config remove nodes <id>`."
     override val sensitive: Boolean = false
 
     override fun allowedValues(): List<String>? = null
 
-    override fun read(): String? = storage.read(key)
+    override fun read(): String? = null
 
-    override fun identifiers(): List<String> = (0 until count()).map { it.toString() }
+    override fun identifiers(): List<String> = manager.list()
 
     override fun add(id: String?): String {
-        val current = count()
-        if (id != null) {
-            require(id == current.toString()) {
-                "$key.add accepts no id or the next index ($current); got '$id'"
-            }
-        }
-        storage.write(key, (current + 1).toString())
-        return current.toString()
+        val name = requireNotNull(id) { "$key requires a node id (got null)" }
+        manager.add(name)
+        return name
     }
 
     override fun remove(id: String) {
-        val current = count()
-        require(current > 0) { "no nodes to remove from $key" }
-        val last = (current - 1).toString()
-        require(id == last) {
-            "only the highest index ($last) can be removed from $key; got '$id'"
-        }
-        storage.write(key, (current - 1).toString())
+        manager.remove(id)
     }
-
-    private fun count(): Int = storage.read(key)?.toIntOrNull() ?: 0
 }

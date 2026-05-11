@@ -6,6 +6,7 @@ micronaut-platform = "4.7.6"
 jdk = "25"
 flyway = "11.10.0"
 sqlite-jdbc = "3.50.3.0"
+micronaut-data = "4.13.0"
 bouncycastle = "1.78.1"
 
 [libraries]
@@ -24,8 +25,8 @@ picocli = { module = "info.picocli:picocli" }
 picocli-codegen = { module = "info.picocli:picocli-codegen" }
 
 # Storage (versions resolved by the Micronaut BOM where unspecified)
-micronaut-data-jdbc = { module = "io.micronaut.data:micronaut-data-jdbc" }
-micronaut-data-processor = { module = "io.micronaut.data:micronaut-data-processor" }
+micronaut-data-jdbc = { module = "io.micronaut.data:micronaut-data-jdbc", version.ref = "micronaut-data" }
+micronaut-data-processor = { module = "io.micronaut.data:micronaut-data-processor", version.ref = "micronaut-data" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
