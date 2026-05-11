@@ -1,12 +1,11 @@
 package kubeofpie.core.registry
 
 import jakarta.inject.Singleton
-import kubeofpie.core.catalogue.AlpineCatalogue
+import kubeofpie.core.business.versions.AlpineVersionManager
 
 @Singleton
 class VersionAlpineVariable(
-    private val storage: VariableStorage,
-    private val catalogue: AlpineCatalogue,
+    private val manager: AlpineVersionManager,
 ) : Variable {
 
     override val key: String = "version.alpine"
@@ -15,9 +14,9 @@ class VersionAlpineVariable(
     override val writable: Boolean = true
     override val sensitive: Boolean = false
 
-    override fun allowedValues(): List<String> = catalogue.supportedVersions()
+    override fun allowedValues(): List<String> = manager.allowedVersions()
 
-    override fun read(): String? = storage.read(key)
+    override fun read(): String? = manager.get()
 
-    override fun write(value: String) = storage.write(key, value)
+    override fun write(value: String) = manager.set(value)
 }

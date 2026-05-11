@@ -2,7 +2,7 @@ package kubeofpie.core.business.nodes
 
 import io.micronaut.context.ApplicationContext
 import java.nio.file.Path
-import kubeofpie.core.registry.VersionAlpineVariable
+import kubeofpie.core.business.versions.AlpineVersionManager
 import kubeofpie.core.storage.ConfigDatabase
 import kubeofpie.core.storage.OpenMode
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -118,7 +118,7 @@ class NodeManagerTest {
     fun `kernelArgs joins the alpine catalogue args with spaces when version is set`(@TempDir tmp: Path) =
         withManager(tmp) { manager, ctx ->
             manager.add("master")
-            ctx.getBean(VersionAlpineVariable::class.java).write("3.21")
+            ctx.getBean(AlpineVersionManager::class.java).set("3.21")
 
             assertEquals("cgroup_memory=1 cgroup_enable=memory", manager.kernelArgs("master"))
         }

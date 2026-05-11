@@ -2,11 +2,11 @@ package kubeofpie.core.business.nodes
 
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
+import kubeofpie.core.business.versions.AlpineVersionManager
 import kubeofpie.core.catalogue.AlpineCatalogue
 import kubeofpie.core.catalogue.RaspberryPiCatalogue
 import kubeofpie.core.data.nodes.NodeEntity
 import kubeofpie.core.data.nodes.NodeRepository
-import kubeofpie.core.registry.VersionAlpineVariable
 
 /**
  * Owns the cluster's node entities and the business logic around them — ID validation,
@@ -25,7 +25,7 @@ class NodeManager(
     private val repositoryProvider: Provider<NodeRepository>,
     private val raspberryPiCatalogue: RaspberryPiCatalogue,
     private val alpineCatalogue: AlpineCatalogue,
-    private val alpineVersion: VersionAlpineVariable,
+    private val alpineVersion: AlpineVersionManager,
 ) {
 
     private val repository: NodeRepository get() = repositoryProvider.get()
@@ -91,7 +91,7 @@ class NodeManager(
      */
     fun kernelArgs(id: String): String? {
         if (!repository.existsById(id)) return null
-        val version = alpineVersion.read() ?: return null
+        val version = alpineVersion.get() ?: return null
         val args = alpineCatalogue.kernelArgs(version) ?: return null
         return args.joinToString(" ")
     }
