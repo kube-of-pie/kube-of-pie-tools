@@ -18,8 +18,13 @@ binaries via GraalVM `native-image` (not yet wired — see TODO in `SqliteDataSo
 ./gradlew :config:run -q --console=plain --args="set version.alpine 3.21 --db /tmp/kop.db"
 ```
 
-`imagegenerator` and `inventorygenerator` are scaffolded but currently empty (`.gitkeep` only) — they have build files
-and apply `kop.micronaut-cli` but no sources yet.
+`inventorygenerator` is scaffolded but currently empty (`.gitkeep` only) — it has a build file and applies
+`kop.micronaut-cli` but no sources yet.
+
+```sh
+# Stage a per-node Raspberry Pi image directory (Alpine rootfs + headless overlay + templated unattended.sh).
+./gradlew :imagegenerator:run -q --console=plain --args="generate --node master --out /tmp/master-image --db /tmp/kop.db"
+```
 
 ## High-level architecture
 
@@ -80,7 +85,8 @@ it for the dotted-key surface.
 
 ### Static catalogues
 
-- `AlpineCatalogue` enumerates supported Alpine versions by scanning `classpath:alpine/<version>.yaml` (works both from
+- `AlpineCatalogue` enumerates supported Alpine versio
+- ns by scanning `classpath:alpine/<version>.yaml` (works both from
   a directory and inside a jar). Adding a new Alpine release = dropping a new YAML file. YAML is parsed by SnakeYAML,
   then bound to `@Serdeable` types via `JsonNode.from(...)` + `ObjectMapper.readValueFromTree(...)` — this round-trip
   keeps deserialization reflection-free under `native-image`.

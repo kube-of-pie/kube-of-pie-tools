@@ -7,6 +7,9 @@ jdk = "25"
 flyway = "11.10.0"
 sqlite-jdbc = "3.50.3.0"
 bouncycastle = "1.78.1"
+commons-compress = "1.28.0"
+freemarker = "2.3.34"
+appdirs = "1.5.0"
 
 [libraries]
 # buildSrc plugin classpath
@@ -37,6 +40,11 @@ snakeyaml = { module = "org.yaml:snakeyaml" }
 # Cryptography
 bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+
+# Image generation
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
+freemarker = { module = "org.freemarker:freemarker", version.ref = "freemarker" }
+appdirs = { module = "net.harawata:appdirs", version.ref = "appdirs" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

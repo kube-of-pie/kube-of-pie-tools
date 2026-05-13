@@ -55,6 +55,14 @@ class AlpineCatalogue(private val mapper: ObjectMapper) {
      */
     fun kernelArgs(version: String): List<String>? = release(version)?.kernelArgs
 
+    /**
+     * URL of the `headless.apkovl.tar.gz` overlay that drives Alpine's first-boot
+     * unattended setup for [version], or `null` when [version] is not in
+     * [supportedVersions]. Pinned per-release so an Alpine bump can shift the overlay
+     * version in lockstep.
+     */
+    fun overlayUrl(version: String): String? = release(version)?.overlayUrl
+
     private fun release(version: String): AlpineYaml? {
         val resourceName = "$RESOURCE_DIR$version$YAML_SUFFIX"
         val raw = javaClass.classLoader.getResourceAsStream(resourceName) ?: return null
@@ -104,5 +112,6 @@ class AlpineCatalogue(private val mapper: ObjectMapper) {
 @Serdeable
 internal data class AlpineYaml(
     @param:JsonProperty("download_url") val downloadUrl: String,
+    @param:JsonProperty("overlay_url") val overlayUrl: String,
     @param:JsonProperty("kernel_args") val kernelArgs: List<String>,
 )

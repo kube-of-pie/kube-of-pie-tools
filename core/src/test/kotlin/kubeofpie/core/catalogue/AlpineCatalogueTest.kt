@@ -59,6 +59,23 @@ class AlpineCatalogueTest {
         }
     }
 
+    @Test
+    fun `overlayUrl returns the pinned headless bootstrap tarball for the version`() {
+        withCatalogue { catalogue ->
+            assertEquals(
+                "https://github.com/macmpi/alpine-linux-headless-bootstrap/raw/refs/tags/v1.7.1/headless.apkovl.tar.gz",
+                catalogue.overlayUrl("3.21"),
+            )
+        }
+    }
+
+    @Test
+    fun `overlayUrl returns null for an unknown version`() {
+        withCatalogue { catalogue ->
+            assertNull(catalogue.overlayUrl("3.99"))
+        }
+    }
+
     private fun withCatalogue(block: (AlpineCatalogue) -> Unit) {
         ApplicationContext.run().use { ctx ->
             block(ctx.getBean(AlpineCatalogue::class.java))

@@ -1,5 +1,6 @@
 version: 3.21
 download_url: https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/{arch}/alpine-rpi-3.21.3-{arch}.tar.gz
+overlay_url: https://github.com/macmpi/alpine-linux-headless-bootstrap/raw/refs/tags/v1.7.1/headless.apkovl.tar.gz
 kernel_args:
   - cgroup_memory=1
   - cgroup_enable=memory
