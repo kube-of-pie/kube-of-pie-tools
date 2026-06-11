@@ -47,6 +47,12 @@ playbooks.
 
 > The Ansible playbooks themselves are **not** kept in this repository.
 
+## Logging
+
+All CLIs in this toolchain are silent by default — they print only their own structured output, never framework or
+library noise. Pass `-v` / `--verbose` to enable `INFO`-level logs from Micronaut, Flyway, and the rest of the stack on
+stderr (so they don't interleave with command output on stdout).
+
 ## Stack
 
 - [Kotlin](https://kotlinlang.org/) on [Micronaut](https://micronaut.io/)

@@ -36,6 +36,7 @@ imagegenerator generate --node <id> --out <dir> [--db <path>] [--cache-dir <dir>
 - `--offline` — fail if either asset is missing from the cache instead of attempting a download. Useful for reproducible
   runs and air-gapped machines.
 - `--force` — clear the contents of `--out` before extracting.
+- `-v` / `--verbose` — print Micronaut and library logs to stderr at `INFO` level. The CLI is silent by default.
 
 Exit codes match the rest of the toolchain: `0` on success, `2` for user / configuration errors (missing database,
 unregistered node, validation failure, offline cache miss), `1` for unexpected I/O or HTTP errors.

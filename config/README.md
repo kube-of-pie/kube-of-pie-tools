@@ -42,7 +42,8 @@ config ui
 - `ui` launches the embedded web UI.
 
 All commands take a global `--db <path>` flag and respect `KUBE_OF_PIE_DB`; see
-[`core/README.md`](../core/README.md) for the full path-resolution rules.
+[`core/README.md`](../core/README.md) for the full path-resolution rules. Pass `-v` / `--verbose` to print Micronaut and
+library logs to stderr at `INFO` level — the CLI is silent by default.
 
 ## Web UI
 
