@@ -1,0 +1,17 @@
+<configuration>
+    <!--
+      Shared logback config for every kube-of-pie CLI. Root level is OFF by default so the
+      CLI prints only its own structured output; the verbose flag in each CLI's main()
+      sets KOP_LOG_LEVEL=DEBUG before Micronaut boots to flip everything on.
+    -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="${KOP_LOG_LEVEL:-OFF}">
+        <appender-ref ref="STDERR"/>
+    </root>
+</configuration>
